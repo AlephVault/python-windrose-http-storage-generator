@@ -3,18 +3,29 @@ import os
 import shutil
 
 
-def _make_docker_compose_file(project_path: str, mongodb_port: int = 27017, http_port: int = 8080):
+def _make_docker_compose_file(project_path: str, mongodb_port: int = 27017, http_port: int = 8080,
+                              express_port: int = 8081):
     """
     Dumps the whole docker-compose.yml file in the project directory.
     :param project_path: The path of the project.
     :param mongodb_port: The mongodb port to expose the container at.
     :param http_port: The http port to expose the container at.
+    :param express_port: The mongo express port to expose the container at.
     """
 
     contents = f"""version: '3.7'
 services:
+  express:
+    image: mongo-express:1.0.0-alpha
+    restart: always
+    env_file: .env
+    ports:
+      - {express_port}:8081
+    expose:
+      - {express_port}
   mongodb:
     image: mongo:6.0
+    restart: always
     env_file: .env
     ports:
       - {mongodb_port}:27017
@@ -26,6 +37,7 @@ services:
     build:
       context: ./server
     command: waitress-serve --listen=127.0.0.1:80 app:app
+    restart: always
     env_file: .env
     ports:
       - {http_port}:80
@@ -37,8 +49,7 @@ services:
         f.write(contents)
 
 
-def _make_env_file(project_path: str, mongodb_port: int = 27017,
-                   mongodb_user: str = "admin", mongodb_pass: str = "p455w0rd",
+def _make_env_file(project_path: str, mongodb_user: str = "admin", mongodb_pass: str = "p455w0rd",
                    server_api_key: str = "sample-abcdef"):
     """
     Creates the envfile for the mongodb container.
@@ -49,12 +60,17 @@ def _make_env_file(project_path: str, mongodb_port: int = 27017,
     :param server_api_key: The default api key available for a server.
     """
 
-    contents = f"""MONGO_INITDB_ROOT_USERNAME={mongodb_user}
+    contents = f"""# These environment variables stand for all the containers
+MONGO_INITDB_ROOT_USERNAME={mongodb_user}
 MONGO_INITDB_ROOT_PASSWORD={mongodb_pass}
 DB_HOST=mongodb
-DB_PORT={mongodb_port}
+DB_PORT=27017
 DB_USER={mongodb_user}
 DB_PASS={mongodb_pass}
+ME_CONFIG_MONGODB_SERVER=mongodb
+ME_CONFIG_MONGODB_PORT=27017
+ME_CONFIG_MONGODB_ADMINUSERNAME={mongodb_user}
+ME_CONFIG_MONGODB_ADMINPASSWORD={mongodb_pass}
 SERVER_API_KEY={server_api_key}
 """
 
@@ -103,6 +119,44 @@ def _make_init_file(project_path: str):
         f.write("")
 
 
+def _make_console_startup_file(project_path: str):
+    """
+    Creates the http_storage_console file.
+    :param project_path: The path of the project.
+    """
+
+    contents = f"""# These variables are initialized into the interpreter.
+import os
+from urllib.parse import quote_plus
+
+from pymongo import MongoClient
+
+host = os.environ["DB_HOST"].strip()
+port = os.environ["DB_PORT"]
+user = os.environ["DB_USER"].strip()
+password = os.environ["DB_PASS"]
+client = MongoClient("mongodb://%s:%s@%s:%s" % (quote_plus(user), quote_plus(password), host, port))
+"""
+
+    with open(os.path.join(project_path, "server", "http_storage_console.py"), "w") as f:
+        f.write(contents)
+
+
+def _make_console_shellscript_file(project_path: str):
+    """
+    Creates the console execution shellscript file.
+    :param project_path: The path of the project.
+    """
+
+    contents = f"""#!/bin/bash
+DIR="$(dirname "$0")"
+(cd "$DIR" && docker-compose exec -ti -e PYTHONSTARTUP="/app/http_storage_console.py" http python)
+"""
+
+    with open(os.path.join(project_path, "server", "console.sh"), "w") as f:
+        f.write(contents)
+
+
 def _make_app_file(project_path: str, template: str):
     """
     Creates the app file, based on a template. This can occur in two ways:
@@ -122,7 +176,7 @@ def _make_app_file(project_path: str, template: str):
 
 
 def generate_project(full_path: str, template: str,
-                     mongodb_port: int = 27017, http_port: int = 8080,
+                     mongodb_port: int = 27017, http_port: int = 8080, express_port: int = 8081,
                      mongodb_user: str = "admin", mongodb_pass: str = "p455w0rd",
                      server_api_key: str = "sample-abcdef"):
     """
@@ -131,6 +185,7 @@ def generate_project(full_path: str, template: str,
     :param template: The template to use.
     :param mongodb_port: The mongodb port to expose the container at.
     :param http_port: The http port to expose the container at.
+    :param express_port: The mongo express port to expose the container at.
     :param mongodb_user: The mongodb user.
     :param mongodb_pass: The mongodb password.
     :param server_api_key: The default api key available for a server.
@@ -147,9 +202,11 @@ def generate_project(full_path: str, template: str,
     os.makedirs(os.path.join(full_path, "server"), exist_ok=True)
 
     # Create all the files.
-    _make_docker_compose_file(full_path, mongodb_port, http_port)
-    _make_env_file(full_path, mongodb_port, mongodb_user, mongodb_pass, server_api_key)
+    _make_docker_compose_file(full_path, mongodb_port, http_port, express_port)
+    _make_env_file(full_path, mongodb_user, mongodb_pass, server_api_key)
     _make_dockerfile(full_path)
     _make_requirements_file(full_path)
     _make_init_file(full_path)
     _make_app_file(full_path, template)
+    _make_console_startup_file(full_path)
+    _make_console_shellscript_file(full_path)
