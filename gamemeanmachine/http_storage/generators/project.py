@@ -36,7 +36,7 @@ services:
   http:
     build:
       context: ./server
-    command: waitress-serve --listen=127.0.0.1:80 app:app
+    command: waitress-serve --listen=0.0.0.0:80 app:app
     restart: always
     env_file: .env
     ports:

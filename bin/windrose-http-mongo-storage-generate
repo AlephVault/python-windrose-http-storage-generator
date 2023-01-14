@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     try:
         generate_project(args.project_path, args.template, args.mongodb_port, args.http_port, args.express_port,
-                         args.mongodb_user, args.mongodb_pass, args.server_api_key)
+                         args.mongodb_user, args.mongodb_password, args.server_api_key)
     except Exception as e:
         LOGGER.error(f"[{type(e).__name__}]: {str(e)}")
         sys.exit(1)
