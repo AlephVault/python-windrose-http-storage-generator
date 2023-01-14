@@ -25,9 +25,10 @@ services:
   http:
     build:
       context: ./server
+    command: waitress-serve --listen=127.0.0.1:80 app:app
     env_file: .env
     ports:
-      - {http_port}:8080
+      - {http_port}:80
     expose:
       - {http_port}
 """
@@ -55,9 +56,6 @@ DB_PORT={mongodb_port}
 DB_USER={mongodb_user}
 DB_PASS={mongodb_pass}
 SERVER_API_KEY={server_api_key}
-WAITRESS_PORT=8080
-MODULE_NAME=app
-VARIABLE_NAME=app
 """
 
     with open(os.path.join(project_path, ".env"), "w") as f:
@@ -115,9 +113,9 @@ def _make_app_file(project_path: str, template: str):
     """
 
     if template == "default:simple":
-        template = os.path.join(os.path.dirname(__file__), "simple-application-template.py")
-    elif template == "default:multiple":
-        template = os.path.join(os.path.dirname(__file__), "multichar-application-template.py")
+        template = os.path.join(os.path.dirname(__file__), "templates", "simple-application-template.py")
+    elif template == "default:multichar":
+        template = os.path.join(os.path.dirname(__file__), "templates", "multichar-application-template.py")
 
     target = os.path.join(project_path, "server", "app.py")
     shutil.copy(template, target)
