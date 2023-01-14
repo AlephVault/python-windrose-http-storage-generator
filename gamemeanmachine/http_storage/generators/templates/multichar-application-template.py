@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import List
 from flask import request, make_response, jsonify
 from pymongo import MongoClient
 from alephvault.http_storage.flask_app import StorageApp
@@ -232,6 +233,25 @@ class Application(StorageApp):
         }
     }
 
+    def _init_default_key(self, key: str):
+        """
+        A convenience utility to initialize an API key.
+        :param key: The key to initialize.
+        """
+
+        self._client["auth-db"]["api-keys"].insert_one({"api-key": key})
+
+    def _init_static_scopes(self, scopes: List[str]):
+        """
+        A convenience utility to initialize some static maps.
+        :param scopes: The scopes keys to initialize.
+        """
+
+        self._client["universe"]["scopes"].insert_many([
+            {"key": scope, "template_key": scope, "dynamic": False}
+            for scope in set(scopes)
+        ])
+
     def __init__(self, import_name: str = __name__):
         super().__init__(self.SETTINGS, import_name=import_name)
         try:
@@ -239,7 +259,8 @@ class Application(StorageApp):
             result = setup.find_one()
             if not result:
                 setup.insert_one({"done": True})
-                self._client["auth-db"]["api-keys"].insert_one({"api-key": os.environ['SERVER_API_KEY']})
+                self._init_default_key(os.environ['SERVER_API_KEY'])
+                # self._init_static_scopes([])
         except:
             pass
 

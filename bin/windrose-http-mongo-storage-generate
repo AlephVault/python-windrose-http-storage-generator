@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+import os
+import argparse
+import logging
+import sys
+
+from gamemeanmachine.http_storage.generators import generate_project
+
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger("windrose-http-mongo-storage-generate")
+
+
+if __name__ == "__main__":
+    cwd = os.getcwd()
+    parser = argparse.ArgumentParser(description='Generates a suitable HTTP MongoDB storage stack for WindRose games')
+
+    parser.add_argument("project_path", type=str, help="The project path (might be relative or absolute)")
+    parser.add_argument("template", type=str, help="The template to use (a relativa or absolute path to a .py file, "
+                                                   "or one of the constants 'default:simple' or 'default:multichar'")
+    parser.add_argument('--mongodb-port', type=int, default=27017, help="The port to expose MongoDB externally")
+    parser.add_argument('--http-port', type=int, default=8080, help="The port to expose the API externally")
+    parser.add_argument('--express-port', type=int, default=8081, help="The port to expose the Mongo Express "
+                                                                       "externally")
+    parser.add_argument('--mongodb-user', type=str, default='admin', help="The root username for MongoDB instance. "
+                                                                          "This one should be review on production "
+                                                                          "and be considered here only for dev "
+                                                                          "purposes")
+    parser.add_argument('--mongodb-password', type=str, default='p455w0rd',
+                        help="The root password for MongoDB instances. Please, for God's "
+                             "sake or the divinity you believe in: change this one once you "
+                             "setup production. Mess manually with all the environment variables")
+    parser.add_argument('--server-api-key', type=str, default='sample-abcdef',
+                        help="The default API key for the game server to be able to hit the API. "
+                             "Again: this is a password. Treat it with the same secrecy and also "
+                             "ensure you use another one for the production environment")
+
+    args = parser.parse_args()
+
+    if not (1024 <= args.mongodb_port <= 65535):
+        LOGGER.error("The value for --mongodb-port must be a valid non-privileged port!")
+        sys.exit(1)
+
+    if not (1024 <= args.http_port <= 65535):
+        LOGGER.error("The value for --http-port must be a valid non-privileged port!")
+        sys.exit(1)
+
+    if not (1024 <= args.express_port <= 65535):
+        LOGGER.error("The value for --express-port must be a valid non-privileged port!")
+        sys.exit(1)
+
+    if len({args.mongodb_port, args.http_port, args.express_port}) < 3:
+        LOGGER.error("The argument ports must be all different!")
+        sys.exit(1)
+
+    try:
+        generate_project(args.project_path, args.template, args.mongodb_port, args.http_port, args.express_port,
+                         args.mongodb_user, args.mongodb_pass, args.server_api_key)
+    except Exception as e:
+        LOGGER.error(f"[{type(e).__name__}]: {str(e)}")
+        sys.exit(1)
