@@ -56,10 +56,25 @@ DB_USER={mongodb_user}
 DB_PASS={mongodb_pass}
 SERVER_API_KEY={server_api_key}
 WAITRESS_PORT=8080
-MODULE_NAME=app:app
+MODULE_NAME=app
+VARIABLE_NAME=app
 """
 
-    with open(os.path.join(project_path, ".mongodb.env"), "w") as f:
+    with open(os.path.join(project_path, ".env"), "w") as f:
+        f.write(contents)
+
+
+def _make_requirements_file(project_path: str):
+    """
+    Creates the requirements.txt file.
+    :param project_path: The path of the project.
+    """
+
+    contents = f"""# Place any requirements you need in this file.
+alephvault-http-mongodb-storage==0.0.4
+"""
+
+    with open(os.path.join(project_path, "server", "requirements.txt"), "w") as f:
         f.write(contents)
 
 
@@ -69,15 +84,25 @@ def _make_dockerfile(project_path: str):
     :param project_path: The path of the project.
     """
 
-    contents = f"""tecktron/python-waitress:python-3.7
+    contents = f"""FROM tecktron/python-waitress:python-3.7
 
 COPY ./ /app
 RUN pip install -r /app/requirements.txt
-# The /app/wsgi.py file will be the entrypoint for waitress serve.
+# The /app/app.py file will be the entrypoint for waitress serve.
 """
 
     with open(os.path.join(project_path, "server", "Dockerfile"), "w") as f:
         f.write(contents)
+
+
+def _make_init_file(project_path: str):
+    """
+    Creates the __init__.py file.
+    :param project_path: The path of the project.
+    """
+
+    with open(os.path.join(project_path, "server", "__init__.py"), "w") as f:
+        f.write("")
 
 
 def _make_app_file(project_path: str, template: str):
@@ -117,7 +142,7 @@ def generate_project(full_path: str, template: str,
     os.makedirs(full_path, exist_ok=True)
 
     # Require the directory to be empty beforehand.
-    if os.listdir(full_path) != 0:
+    if len(os.listdir(full_path)) != 0:
         raise OSError("Directory not empty")
 
     # Create the server path.
@@ -127,4 +152,6 @@ def generate_project(full_path: str, template: str,
     _make_docker_compose_file(full_path, mongodb_port, http_port)
     _make_env_file(full_path, mongodb_port, mongodb_user, mongodb_pass, server_api_key)
     _make_dockerfile(full_path)
+    _make_requirements_file(full_path)
+    _make_init_file(full_path)
     _make_app_file(full_path, template)
