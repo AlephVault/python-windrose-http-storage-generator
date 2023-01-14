@@ -49,6 +49,23 @@ services:
         f.write(contents)
 
 
+def _make_compose_shellscript_file(project_path: str):
+    """
+    Creates the docker-compose execution shellscript file.
+    :param project_path: The path of the project.
+    """
+
+    contents = f"""#!/bin/bash
+DIR="$(dirname "$0")"
+(cd "$DIR" && docker-compose $@)
+"""
+
+    filepath = os.path.join(project_path, "compose.sh")
+    with open(filepath, "w") as f:
+        f.write(contents)
+    os.chmod(filepath, 0o700)
+
+
 def _make_env_file(project_path: str, mongodb_user: str = "admin", mongodb_pass: str = "p455w0rd",
                    server_api_key: str = "sample-abcdef"):
     """
@@ -153,8 +170,10 @@ DIR="$(dirname "$0")"
 (cd "$DIR" && docker-compose exec -ti -e PYTHONSTARTUP="/app/http_storage_console.py" http python)
 """
 
-    with open(os.path.join(project_path, "server", "console.sh"), "w") as f:
+    filepath = os.path.join(project_path, "server", "console.sh")
+    with open(filepath, "w") as f:
         f.write(contents)
+    os.chmod(filepath, 0o700)
 
 
 def _make_app_file(project_path: str, template: str):
@@ -203,6 +222,7 @@ def generate_project(full_path: str, template: str,
 
     # Create all the files.
     _make_docker_compose_file(full_path, mongodb_port, http_port, express_port)
+    _make_compose_shellscript_file(full_path)
     _make_env_file(full_path, mongodb_user, mongodb_pass, server_api_key)
     _make_dockerfile(full_path)
     _make_requirements_file(full_path)
