@@ -155,7 +155,7 @@ class Application(StorageApp):
                 "collection": "accounts",
                 "soft_delete": True,
                 "schema": ACCOUNTS,
-                "projection": ["login", "password", "display_name", "position"],
+                "list_projection": ["login", "password", "display_name", "position"],
                 "verbs": "*",
                 "indexes": {
                     "unique-login": {
@@ -180,7 +180,7 @@ class Application(StorageApp):
                 "collection": "scopes",
                 "soft_delete": True,
                 "schema": SCOPES,
-                "projection": ["key", "template_key", "dynamic"],
+                "list_projection": ["key", "template_key", "dynamic"],
                 "verbs": "*",
                 "indexes": {
                     "key": {
@@ -195,7 +195,7 @@ class Application(StorageApp):
                 "collection": "maps",
                 "soft_delete": True,
                 "schema": MAPS,
-                "projection": ["scope_id", "index", "drop"],
+                "list_projection": ["scope_id", "index", "drop"],
                 "verbs": "*",
                 "indexes": {
                     "key": {
