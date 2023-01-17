@@ -1,9 +1,11 @@
 import os
 import logging
 from typing import List
+from bson import ObjectId
 from flask import request, make_response, jsonify
 from pymongo import MongoClient
 from alephvault.http_storage.flask_app import StorageApp
+from alephvault.http_storage.core.validation import MongoDBEnhancedValidator
 from alephvault.http_storage.types.method_handlers import MethodHandler, ItemMethodHandler
 
 
@@ -17,10 +19,36 @@ class GetUserByLogin(MethodHandler):
 
     def __call__(self, client: MongoClient, resource: str, method: str, db: str, collection: str, filter: dict):
         login = request.args.get("login")
+        if not login:
+            return make_response(jsonify({"code": "missing-lookup"}), 400)
         filter = {**filter, "login": login}
         document = client[db][collection].find_one(filter)
         if document:
             return make_response(jsonify(document), 200)
+        else:
+            return make_response(jsonify({"code": "not-found"}), 404)
+
+
+class GetCharactersByAccount(MethodHandler):
+    """
+    Get all the characters that are non-deleted and belong to a given account.
+    """
+
+    def __call__(self, client: MongoClient, resource: str, method: str, db: str, collection: str, filter: dict):
+        login = request.args.get("login")
+        if login:
+            filter = {**filter, "login": login}
+        else:
+            acc_id = request.args.get("id")
+            if acc_id:
+                filter = {**filter, "_id": ObjectId(acc_id)}
+            else:
+                return make_response(jsonify({"code": "missing-lookup"}), 404)
+        document = client[db]['accounts'].find_one(filter)
+        if document:
+            result = list(client[db][collection].find({'_deleted': {'$ne': True}, 'account_id': document['_id']},
+                                                      ['display_name']))
+            return make_response(jsonify(result), 200)
         else:
             return make_response(jsonify({"code": "not-found"}), 404)
 
@@ -35,9 +63,23 @@ ACCOUNTS = {
         "type": "string",
         "required": True,
         "empty": False
+    }
+}
+
+
+CHARACTERS = {
+    "account_id": {
+        "type": "objectid",
+        "required": True,
+    },
+    "display_name": {
+        "type": "string",
+        "required": True,
+        "empty": False
     },
     "position": {
         "type": "dict",
+        "required": True,
         "schema": {
             "scope": {
                 # It must be a valid scope, but "" can be
@@ -76,24 +118,7 @@ ACCOUNTS = {
         }
     }
 }
-
-
-CHARACTERS = {
-    "account_id": {
-        "type": "objectid",
-        "required": True,
-    },
-    "index": {
-        "type": "integer",
-        "required": True,
-        "min": 0
-    },
-    "display_name": {
-        "type": "string",
-        "required": True,
-        "empty": False
-    },
-}
+MongoDBEnhancedValidator.apply_default_coercers(CHARACTERS)
 
 
 SCOPES = {
@@ -166,7 +191,7 @@ class Application(StorageApp):
                 "collection": "accounts",
                 "soft_delete": True,
                 "schema": ACCOUNTS,
-                "projection": ["login", "password", "position"],
+                "list_projection": ["login", "password"],
                 "verbs": "*",
                 "indexes": {
                     "unique-login": {
@@ -187,18 +212,24 @@ class Application(StorageApp):
                 "collection": "characters",
                 "soft_delete": True,
                 "schema": CHARACTERS,
-                "projection": ["display_name"],
+                "list_projection": ["display_name", "position"],
                 "verbs": "*",
                 "indexes": {
                     "unique-nickname": {
                         "unique": True,
                         "fields": "display_name"
                     },
-                    "unique-id": {
-                        "unique": True,
-                        "fields": ["account_id", "index"]
+                    "account-id": {
+                        "unique": False,
+                        "fields": "account_id"
                     }
                 },
+                "methods": {
+                    "by-account": {
+                        "type": "view",
+                        "handler": GetCharactersByAccount()
+                    }
+                }
             },
             "scopes": {
                 "type": "list",
@@ -206,7 +237,7 @@ class Application(StorageApp):
                 "collection": "scopes",
                 "soft_delete": True,
                 "schema": SCOPES,
-                "projection": ["key", "template_key", "dynamic"],
+                "list_projection": ["key", "template_key", "dynamic"],
                 "verbs": "*",
                 "indexes": {
                     "key": {
@@ -221,7 +252,7 @@ class Application(StorageApp):
                 "collection": "maps",
                 "soft_delete": True,
                 "schema": MAPS,
-                "projection": ["scope_id", "index", "drop"],
+                "list_projection": ["scope_id", "index", "drop"],
                 "verbs": "*",
                 "indexes": {
                     "key": {
