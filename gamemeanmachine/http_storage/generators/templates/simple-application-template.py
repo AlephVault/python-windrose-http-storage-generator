@@ -17,6 +17,8 @@ class GetUserByLogin(MethodHandler):
 
     def __call__(self, client: MongoClient, resource: str, method: str, db: str, collection: str, filter: dict):
         login = request.args.get("login")
+        if not login:
+            return make_response(jsonify({"code": "missing-lookup"}), 400)
         filter = {**filter, "login": login}
         document = client[db][collection].find_one(filter)
         if document:
@@ -43,6 +45,7 @@ ACCOUNTS = {
     },
     "position": {
         "type": "dict",
+        "required": True,
         "schema": {
             "scope": {
                 # It must be a valid scope, but "" can be
