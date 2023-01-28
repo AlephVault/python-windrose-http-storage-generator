@@ -43,11 +43,35 @@ class GetCharactersByAccount(MethodHandler):
             if acc_id:
                 filter = {**filter, "_id": ObjectId(acc_id)}
             else:
-                return make_response(jsonify({"code": "missing-lookup"}), 404)
+                return make_response(jsonify({"code": "missing-lookup"}), 400)
         document = client[db]['accounts'].find_one(filter)
         if document:
             result = list(client[db][collection].find({'_deleted': {'$ne': True}, 'account_id': document['_id']},
                                                       ['display_name']))
+            return make_response(jsonify(result), 200)
+        else:
+            return make_response(jsonify({"code": "not-found"}), 404)
+
+
+class GetMapsByScope(MethodHandler):
+    """
+    Get all the maps references inside a given scope.
+    """
+
+    def __call__(self, client: MongoClient, resource: str, method: str, db: str, collection: str, filter: dict):
+        scope = request.args.get("scope")
+        if scope:
+            filter = {**filter, "key": scope}
+        else:
+            scope_id = request.args.get("id")
+            if scope_id:
+                filter = {**filter, "_id": ObjectId(scope_id)}
+            else:
+                return make_response(jsonify({"code": "missing-lookup"}), 400)
+        document = client[db]['scopes'].find_one(filter)
+        if document:
+            result = list(client[db][collection].find({'_deleted': {}, 'scope_id': document['_id']},
+                                                      ['index']))
             return make_response(jsonify(result), 200)
         else:
             return make_response(jsonify({"code": "not-found"}), 404)
@@ -258,6 +282,12 @@ class Application(StorageApp):
                     "key": {
                         "unique": True,
                         "fields": ["scope_id", "index"]
+                    }
+                },
+                "methods": {
+                    "by-scope": {
+                        "type": "view",
+                        "handler": GetMapsByScope()
                     }
                 }
             }
