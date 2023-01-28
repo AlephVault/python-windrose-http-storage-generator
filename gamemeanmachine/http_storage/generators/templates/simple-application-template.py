@@ -89,9 +89,10 @@ class UpdateDrop(MethodHandler):
             return make_response(jsonify({"code": "missing-or-invalid-drop"}), 400)
 
         # Get the index to apply the changes from.
-        from_idx = request.args.get("from", 0)
-        if from_idx < 0:
+        from_idx = request.json.get("from", 0)
+        if not isinstance(from_idx, (int, float)) or from_idx < 0:
             return make_response(jsonify({"code": "bad-index"}), 400)
+        from_idx = int(from_idx)
 
         # Get the map to change the drops.
         document = client[db][collection].find_one(filter)
