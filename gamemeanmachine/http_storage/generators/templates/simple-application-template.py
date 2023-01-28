@@ -52,6 +52,59 @@ class GetMapsByScope(MethodHandler):
             return make_response(jsonify({"code": "not-found"}), 404)
 
 
+class UpdateDrop(MethodHandler):
+    """
+    Updates part of the drop of a map. This update is done in linear slice.
+    """
+
+    def _replace(self, current_drop: list, from_idx: int, drops: list):
+        """
+        Ensures the current drop is updated with new drops.
+        :param current_drop: The current drop(s) status.
+        :param from_idx: The index to start updating from.
+        :param drops: The drops to set.
+        """
+
+        current_drop_len = len(current_drop)
+        to_idx = from_idx + len(drops)
+        extra = to_idx - current_drop_len
+        if extra > 0:
+            current_drop.extend([[] for _ in range(extra)])
+        current_drop[from_idx:to_idx] = drops
+
+    def __call__(self, client: MongoClient, resource: str, method: str, db: str, collection: str, filter: dict):
+        map_id = request.args.get("id")
+        if map_id:
+            filter = {**filter, "_id": ObjectId(map_id)}
+        else:
+            return make_response(jsonify({"code": "missing-lookup"}), 400)
+
+        # Only allow JSON format.
+        if not request.is_json:
+            return make_response(jsonify({"code": "bad-format"}), 406)
+
+        # Get the drops.
+        drops = request.json.get("drops")
+        if not isinstance(drops, list) or not all(isinstance(box, list) for box in drops):
+            return make_response(jsonify({"code": "missing-or-invalid-drop"}), 400)
+
+        # Get the index to apply the changes from.
+        from_idx = request.args.get("from", 0)
+        if from_idx < 0:
+            return make_response(jsonify({"code": "bad-index"}), 400)
+
+        # Get the map to change the drops.
+        document = client[db][collection].find_one(filter)
+        if document:
+            # Get the drop, and update it.
+            current_drop = document.get("drop", [])
+            self._replace(current_drop, from_idx, [e or [] for e in drops])
+            client[db][collection].update_one(filter, {"$set": {"drop": current_drop}})
+            return make_response(jsonify({"code": "ok"}), 200)
+        else:
+            return make_response(jsonify({"code": "not-found"}), 404)
+
+
 ACCOUNTS = {
     "login": {
         "type": "string",
@@ -220,7 +273,7 @@ class Application(StorageApp):
                 "collection": "maps",
                 "soft_delete": True,
                 "schema": MAPS,
-                "list_projection": ["scope_id", "index", "drop"],
+                "list_projection": ["scope_id", "index"],
                 "verbs": "*",
                 "indexes": {
                     "key": {
@@ -229,6 +282,10 @@ class Application(StorageApp):
                     }
                 },
                 "methods": {
+                    "set-drop": {
+                        "type": "operation",
+                        "handler": UpdateDrop()
+                    },
                     "by-scope": {
                         "type": "view",
                         "handler": GetMapsByScope()
