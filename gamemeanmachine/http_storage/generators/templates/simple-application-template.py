@@ -314,7 +314,7 @@ class Application(StorageApp):
         """
 
         LOGGER.info("Initializing scopes...")
-        for scope, maps in scopes.keys():
+        for scope, maps in scopes.items():
             LOGGER.info(f"Initializing scope {scope} and their {maps}...")
             scope_id = self._client["universe"]["scopes"].insert_one({
                 "key": scope, "template_key": scope, "dynamic": False
