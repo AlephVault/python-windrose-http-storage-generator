@@ -102,7 +102,7 @@ def _make_requirements_file(project_path: str):
     """
 
     contents = f"""# Place any requirements you need in this file.
-alephvault-http-mongodb-storage==0.0.4
+alephvault-http-mongodb-storage==0.0.9
 """
 
     with open(os.path.join(project_path, "server", "requirements.txt"), "w") as f:

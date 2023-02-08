@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import List
+from typing import Dict
 from bson import ObjectId
 from flask import request, make_response, jsonify
 from pymongo import MongoClient
@@ -10,6 +10,8 @@ from alephvault.http_storage.types.method_handlers import MethodHandler, ItemMet
 
 
 logging.basicConfig()
+LOGGER = logging.getLogger("game-storage")
+LOGGER.setLevel(logging.INFO)
 
 
 class GetUserByLogin(MethodHandler):
@@ -358,18 +360,25 @@ class Application(StorageApp):
         :param key: The key to initialize.
         """
 
+        LOGGER.info("Initializing default key...")
         self._client["auth-db"]["api-keys"].insert_one({"api-key": key})
 
-    def _init_static_scopes(self, scopes: List[str]):
+    def _init_static_scopes(self, scopes: Dict[str, int]):
         """
         A convenience utility to initialize some static maps.
-        :param scopes: The scopes keys to initialize.
+        :param scopes: The scopes keys to initialize, and their maps count.
         """
 
-        self._client["universe"]["scopes"].insert_many([
-            {"key": scope, "template_key": scope, "dynamic": False}
-            for scope in set(scopes)
-        ])
+        LOGGER.info("Initializing scopes...")
+        for scope, maps in scopes.keys():
+            LOGGER.info(f"Initializing scope {scope} and their {maps}...")
+            scope_id = self._client["universe"]["scopes"].insert_one({
+                "key": scope, "template_key": scope, "dynamic": False
+            }).inserted_id
+            self._client["universe"]["maps"].insert_many([
+                {"scope_id": scope_id, "index": index, "drop": []}
+                for index in range(max(0, maps))
+            ])
 
     def __init__(self, import_name: str = __name__):
         super().__init__(self.SETTINGS, import_name=import_name)
@@ -379,7 +388,7 @@ class Application(StorageApp):
             if not result:
                 setup.insert_one({"done": True})
                 self._init_default_key(os.environ['SERVER_API_KEY'])
-                # self._init_static_scopes([])
+                self._init_static_scopes({})
         except:
             pass
 
