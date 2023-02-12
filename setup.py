@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name='gamemeanmachine-windrose-http-mongodb-storage-generator',
-    version='0.0.7',
+    version='0.0.8',
     packages=find_namespace_packages(),
     url='https://gitlab.com/gamemeanmachine/python-windrose-http-storage-generator',
     license='MIT',

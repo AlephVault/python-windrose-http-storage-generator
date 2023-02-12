@@ -178,10 +178,6 @@ SCOPES = {
         "required": True,
         "empty": False
     },
-    "dynamic": {
-        "type": "boolean",
-        "required": True
-    },
 }
 
 
@@ -261,7 +257,7 @@ class Application(StorageApp):
                 "collection": "scopes",
                 "soft_delete": True,
                 "schema": SCOPES,
-                "list_projection": ["key", "template_key", "dynamic"],
+                "list_projection": ["key", "template_key"],
                 "verbs": "*",
                 "indexes": {
                     "key": {
@@ -317,7 +313,7 @@ class Application(StorageApp):
         for scope, maps in scopes.items():
             LOGGER.info(f"Initializing scope {scope} and their {maps}...")
             scope_id = self._client["universe"]["scopes"].insert_one({
-                "key": scope, "template_key": scope, "dynamic": False
+                "key": scope, "template_key": ""
             }).inserted_id
             self._client["universe"]["maps"].insert_many([
                 {"scope_id": scope_id, "index": index, "drop": []}
