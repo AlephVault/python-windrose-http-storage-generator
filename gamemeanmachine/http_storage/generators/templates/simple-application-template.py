@@ -266,7 +266,7 @@ class Application(StorageApp):
                 "indexes": {
                     "key": {
                         "unique": True,
-                        "fields": "login"
+                        "fields": "key"
                     }
                 }
             },
@@ -279,7 +279,7 @@ class Application(StorageApp):
                 "list_projection": ["scope_id", "index"],
                 "verbs": "*",
                 "indexes": {
-                    "key": {
+                    "unique-key": {
                         "unique": True,
                         "fields": ["scope_id", "index"]
                     }
